@@ -12,6 +12,7 @@ import (
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/auth"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
 	"github.com/rs/cors"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -28,6 +29,50 @@ type User struct {
 // Global variables for database and Firebase
 var mongoClient *mongo.Client
 var firebaseAuth *auth.Client
+// upgrader holds the websocket configuration
+var upgrader = websocket.Upgrader{
+	// ReadBufferSize and WriteBufferSize specify I/O buffer sizes.
+	ReadBufferSize: 1024,
+	WriteBufferSize: 1024,
+	// CheckOrigin is used to determine if the origin of the request is allowed.
+	// For development, allow all origins.
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
+
+// serveWs handles websocket requests from the peer.
+func serveWs(w http.ResponseWriter, r *http.Request) {
+	log.Println("New WebSocket connection attempt")
+
+	// Upgrade the HTTP connection to a WebSocket connection
+	conn, err := upgrader.Upgrade(w,r,nil)
+	if err != nil {
+		log.Printf("Failed to upgrade connection: %v", err)
+		return
+	}
+	defer conn.Close()
+	log.Println("WebSocket connection established")
+
+	// Simple echo loop for demonstration
+	for {
+		// Read message from client
+		messageType, p, err := conn.ReadMessage()
+		if err != nil {
+			log.Printf("Read error: %v", err)
+			break
+		}
+
+		log.Printf("Received message: %s", p)
+
+		// Write the message back to the client (The Echo)
+		if err := conn.WriteMessage(messageType, p); err != nil {
+			log.Printf("Write error: %v", err)
+			break
+		}
+	}
+	log.Println("WebSocket connection closed")
+}
 
 type contextKey string
 const userContextKey = contextKey("user");
@@ -153,8 +198,12 @@ func main() {
 
 	// --- Router Setup ---
 	r := mux.NewRouter()
+	// Public route for creating users
 	r.HandleFunc("/api/users", createUserHandler).Methods("POST")
+	// Protected route for getting user info
 	r.HandleFunc("/api/me", authMiddleware(meHandler)).Methods("GET")
+	// WebSocket endpoint
+	r.HandleFunc("/ws", serveWs)
 
 	// Handle CORS
 	c := cors.New(cors.Options{
