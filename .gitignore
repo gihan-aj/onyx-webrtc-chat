@@ -8,6 +8,7 @@ Thumbs.db
 /server/server
 /server/server.exe
 /server/.env
+/server/serviceAccountKey.json
 
 # React Client (in client/ folder)
 /client/node_modules/

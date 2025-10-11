@@ -2,6 +2,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
+
 // Read variables from the environment
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -14,6 +15,7 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
+console.log("Config from env:", firebaseConfig);
 const app = initializeApp(firebaseConfig);
 // const analytics = getAnalytics(app)
 

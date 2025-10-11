@@ -12,6 +12,7 @@ const Login: React.FC = () => {
     e.preventDefault();
     setError(null);
     try {
+      // Step 1: Sign in with Firebase
       // Use Firebase function to sign in
       const userCredential = await signInWithEmailAndPassword(
         auth,
@@ -24,6 +25,21 @@ const Login: React.FC = () => {
 
       console.log("User signed in:", userCredential.user);
       console.log("Firebase ID Token:", idToken);
+
+      // Step 2: Call our protected backend endpoint with the token
+      const response = await fetch("http://localhost:8080/api/me", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user data: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log("Protected backend response:", data);
 
       alert("Login successful!");
     } catch (error) {
