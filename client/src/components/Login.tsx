@@ -3,7 +3,11 @@ import type React from "react";
 import { useState } from "react";
 import { auth } from "../firebase";
 
-const Login: React.FC = () => {
+interface LoginProps {
+  onLoginSuccess: (token: string) => void;
+}
+
+const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -12,39 +16,23 @@ const Login: React.FC = () => {
     e.preventDefault();
     setError(null);
     try {
-      // Step 1: Sign in with Firebase
-      // Use Firebase function to sign in
       const userCredential = await signInWithEmailAndPassword(
         auth,
         email,
         password
       );
-
-      // Get the ID token from tthe user object
       const idToken = await userCredential.user.getIdToken();
 
-      console.log("User signed in:", userCredential.user);
-      console.log("Firebase ID Token:", idToken);
+      console.log("User logged in, got ID Token:", idToken);
 
-      // Step 2: Call our protected backend endpoint with the token
-      const response = await fetch("http://localhost:8080/api/me", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-        },
-      });
+      // Call the callback function to update the parent component's state
+      onLoginSuccess(idToken);
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch user data: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log("Protected backend response:", data);
-
-      alert("Login successful!");
     } catch (error) {
-      console.error("Login error:", error);
-      setError(error instanceof Error ? error.message : "Login failed");
+      console.error("Error logging in:", error);
+      if (error instanceof Error) {
+        setError(error.message);
+      }
     }
   };
 
