@@ -25,11 +25,12 @@ var client *mongo.Client
 
 // createUserHandler handles the POST request to create a new user
 func createUserHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("Received request to create user")
 	w.Header().Set("Content-Type", "application/json")
 	var user User
 	// Decode the incoming JSON payload from the request body
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		respondWithError(w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -41,12 +42,22 @@ func createUserHandler(w http.ResponseWriter, r *http.Request) {
 	// Insert the user document into the collection
 	_, err := collection.InsertOne(ctx, user)
 	if err != nil {
-		http.Error(w, "Failed to create user", http.StatusInternalServerError)
+		respondWithError(w, http.StatusInternalServerError, err)
 		return
 	}
 
+	log.Println("User created successfully.")
 	// Respond with the created user
 	json.NewEncoder(w).Encode(user)
+}
+
+func respondWithError(w http.ResponseWriter, code int, err error){
+	// Log the detailed error on the server for debugging.
+    log.Printf("HTTP %d - %s", code, err)
+
+    // Send a generic, user-friendly error message to the client.
+    // We avoid sending the raw error details to the client for security reasons.
+    http.Error(w, http.StatusText(code), code)
 }
 
 func main() {
