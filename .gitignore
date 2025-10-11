@@ -1,0 +1,20 @@
+# General
+.idea/
+.vscode/
+*.DS_Store
+Thumbs.db
+
+# Go Server (in server/ folder)
+/server/server
+/server/server.exe
+/server/.env
+
+# React Client (in client/ folder)
+/client/node_modules/
+/client/dist/
+/client/.vite/
+/client/.env.local
+/client/.env.*.local
+/client/npm-debug.log*
+/client/yarn-debug.log*
+/client/yarn-error.log*
