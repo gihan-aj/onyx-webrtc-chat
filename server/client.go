@@ -16,6 +16,7 @@ type Client struct {
 	send chan []byte
 	// The user's unique ID
 	uid string
+	username string
 }
 
 // readPump pumps messages from the websoocket connection to the hub.
@@ -35,7 +36,8 @@ func (c *Client) readPump() {
 		}
 
 		msg := &Message{
-			SenderID: c.uid,	
+			SenderID: c.uid,
+			SenderName: c.username,
 			Content: string(messageContent),
 			Timestamp: time.Now(),
 		}

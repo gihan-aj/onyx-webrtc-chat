@@ -5,8 +5,15 @@ interface ChatProps {
     token: string;
 }
 
-const Chat: React.FC<ChatProps> = ({token}) => {
-  const [messages, setMessages] = useState<string[]>([]);
+interface Message {
+  senderId: string;
+  senderName: string;
+  content: string;
+  timestamp: string;
+}
+
+const Chat: React.FC<ChatProps> = ({ token }) => {
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState<string>("");
   const ws = useRef<WebSocket | null>(null);
 
@@ -15,20 +22,18 @@ const Chat: React.FC<ChatProps> = ({token}) => {
     const wsUrl = `ws://localhost:8080/ws?token=${token}`;
     ws.current = new WebSocket(wsUrl);
 
-    ws.current.onopen = () => {
-      console.log("WebSocket connected");
-      setMessages((prev) => [...prev, "System: Connected to server!"]);
-    };
+    ws.current.onopen = () => console.log("WebSocket connected!");
 
     ws.current.onmessage = (event) => {
-      console.log("Message from server: ", event.data);
-      setMessages((prev) => [...prev, `Server: ${event.data}`]);
+      try {
+        const newMessage: Message = JSON.parse(event.data);
+        setMessages((prev) => [...prev, newMessage]);
+      } catch (error) {
+        console.error("Failed to parse message: ", error);
+      }
     };
 
-    ws.current.onclose = () => {
-      console.log("WebSocket disconnected");
-      setMessages((prev) => [...prev, "System: Disconnected from server!"]);
-    };
+    ws.current.onclose = () => console.log("WebSocket disconnected!");
 
     ws.current.onerror = (error) => {
       console.error("WebSocket error: ", error);
@@ -38,14 +43,13 @@ const Chat: React.FC<ChatProps> = ({token}) => {
     return () => {
       ws.current?.close();
     };
-  }, []); // The empty array means this effect runs only once when the component mounts.
+  }, [token]);
 
   const sendMessage = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if(input.trim() && ws.current?.readyState === WebSocket.OPEN) {
-        ws.current.send(input);
-        setMessages((prev) => [...prev, `You: ${input}`]);
-        setInput('');
+    if (input.trim() && ws.current?.readyState === WebSocket.OPEN) {
+      ws.current.send(input);
+      setInput("");
     }
   };
 
@@ -62,20 +66,25 @@ const Chat: React.FC<ChatProps> = ({token}) => {
         }}
       >
         {messages.map((msg, index) => (
-            <div key={index}>{msg}</div>
+          <div key={index}>
+            <strong>
+              {msg.senderName.slice(0, msg.senderName.indexOf("@"))}:
+            </strong>{" "}
+            {msg.content}
+          </div>
         ))}
       </div>
       <form onSubmit={sendMessage}>
-        <input 
-            type="text" 
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            style={{ width: '80%', padding: '5px' }}
-         />
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          style={{ width: "80%", padding: "5px" }}
+        />
         <button type="submit">Send</button>
       </form>
     </div>
   );
-}
+};
 
 export default Chat;

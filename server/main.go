@@ -15,6 +15,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
 	"github.com/rs/cors"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"google.golang.org/api/option"
@@ -55,6 +56,19 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request){
 		return
 	}
 
+	var user User
+	collection := mongoClient.Database("onychat").Collection("users")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err = collection.FindOne(ctx, bson.M{"_id": token.UID}).Decode((&user))
+	if err != nil {
+		// Handle case where user is in Firebase Auth but not in our DB
+		log.Printf("User %s not found in database", token.UID)
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("Failed to upgrade connection for user %s: %v", token.UID, err)
@@ -62,7 +76,13 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request){
 	}
 
 	// Create a new client for this connection.
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256), uid: token.UID}
+	client := &Client{
+		hub: hub, 
+		conn: conn, 
+		send: make(chan []byte, 256), 
+		uid: token.UID,
+		username: user.Email,
+	}
 	client.hub.register <- client
 
 	// Allow collection of memory referenced by the go routines.

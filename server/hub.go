@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
+	"time"
 )
 
 // Hub maintains the set of active clients and broadcasts messages to the clients.
@@ -37,6 +39,14 @@ func (h *Hub) run() {
 				close(client.send)
 			}
 		case message := <-h.broadcast:
+			collection := mongoClient.Database("onychat").Collection("messages")
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			_, err := collection.InsertOne(ctx, message)
+			if err != nil {
+				log.Printf("failed to insert message to mongo: %v", err)
+			}
+			cancel()
+
 			// Marshal the message object to JSON
 			messageJSON, err := json.Marshal(message)
 			if err != nil {
