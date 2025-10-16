@@ -10,12 +10,10 @@ const Chat: React.FC<ChatProps> = ({token}) => {
   const [input, setInput] = useState<string>("");
   const ws = useRef<WebSocket | null>(null);
 
-  console.log("Chat component received token:", token);
-
   useEffect(() => {
     // Connect to the WebSocket endpoint here.
-    // NOTE: not sending token yet
-    ws.current = new WebSocket("ws://localhost:8080/ws");
+    const wsUrl = `ws://localhost:8080/ws?token=${token}`;
+    ws.current = new WebSocket(wsUrl);
 
     ws.current.onopen = () => {
       console.log("WebSocket connected");

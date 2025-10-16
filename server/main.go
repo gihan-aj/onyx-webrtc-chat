@@ -20,16 +20,14 @@ import (
 	"google.golang.org/api/option"
 )
 
-// User struct defines the data model for the user in MongoDB
+// --- Structs and Global Variables ---
 type User struct {
 	ID    string `json:"id" bson:"_id"`
 	Email string `json:"email" bson:"email"`
 }
 
-// Global variables for database and Firebase
 var mongoClient *mongo.Client
 var firebaseAuth *auth.Client
-// upgrader holds the websocket configuration
 var upgrader = websocket.Upgrader{
 	// ReadBufferSize and WriteBufferSize specify I/O buffer sizes.
 	ReadBufferSize: 1024,
@@ -40,42 +38,86 @@ var upgrader = websocket.Upgrader{
 		return true
 	},
 }
-
-// serveWs handles websocket requests from the peer.
-func serveWs(w http.ResponseWriter, r *http.Request) {
-	log.Println("New WebSocket connection attempt")
-
-	// Upgrade the HTTP connection to a WebSocket connection
-	conn, err := upgrader.Upgrade(w,r,nil)
-	if err != nil {
-		log.Printf("Failed to upgrade connection: %v", err)
-		return
-	}
-	defer conn.Close()
-	log.Println("WebSocket connection established")
-
-	// Simple echo loop for demonstration
-	for {
-		// Read message from client
-		messageType, p, err := conn.ReadMessage()
-		if err != nil {
-			log.Printf("Read error: %v", err)
-			break
-		}
-
-		log.Printf("Received message: %s", p)
-
-		// Write the message back to the client (The Echo)
-		if err := conn.WriteMessage(messageType, p); err != nil {
-			log.Printf("Write error: %v", err)
-			break
-		}
-	}
-	log.Println("WebSocket connection closed")
-}
-
 type contextKey string
 const userContextKey = contextKey("user");
+
+// serveWs handles, authenticates, and upgrades websocket requests.
+func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request){
+	tokenString := r.URL.Query().Get("token")
+	if tokenString == "" {
+		http.Error(w, "Missing token", http.StatusUnauthorized)
+		return
+	}
+
+	token, err := firebaseAuth.VerifyIDToken(context.Background(), tokenString)
+	if err != nil {
+		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		return
+	}
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("Failed to upgrade connection for user %s: %v", token.UID, err)
+		return
+	}
+
+	// Create a new client for this connection.
+	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256), uid: token.UID}
+	client.hub.register <- client
+
+	// Allow collection of memory referenced by the go routines.
+	go client.writePump()
+	go client.readPump()
+}
+// func serveWs(w http.ResponseWriter, r *http.Request) {
+// 	// 1. Get the token from the query parameter
+// 	tokenString := r.URL.Query().Get("token")
+// 	if tokenString == "" {
+// 		log.Println("Missing token in query parameters")
+// 		http.Error(w, "Missing token", http.StatusUnauthorized)
+// 		return
+// 	}
+
+// 	// 2. Verify token with Firebase
+// 	token, err := firebaseAuth.VerifyIDToken(context.Background(), tokenString)
+// 	if err != nil {
+// 		log.Printf("Error verifying token: %v", err)
+// 		http.Error(w, "Invalid token", http.StatusUnauthorized)
+// 		return
+// 	}
+
+// 	log.Printf("New WebSocket connection attempt from user: %s", token.UID)
+
+// 	// Upgrade the HTTP connection to a WebSocket connection
+// 	conn, err := upgrader.Upgrade(w, r, nil)
+// 	if err != nil {
+// 		log.Printf("Failed to upgrade connection for user %s: %v", token.UID, err)
+// 		return
+// 	}
+// 	defer conn.Close()
+// 	log.Printf("WebSocket connection established for user: %s", token.UID)
+
+// 	// Simple echo loop for demonstration
+// 	for {
+// 		// Read message from client
+// 		messageType, p, err := conn.ReadMessage()
+// 		if err != nil {
+// 			log.Printf("Read error: %v", err)
+// 			break
+// 		}
+
+// 		log.Printf("Received message: %s", p)
+
+// 		// Write the message back to the client (The Echo)
+// 		if err := conn.WriteMessage(messageType, p); err != nil {
+// 			log.Printf("Write error: %v", err)
+// 			break
+// 		}
+// 	}
+// 	log.Printf("WebSocket connection closed for user: %s", token.UID)
+// }
+
+
 
 // Protect routes middleware to verify Firebase ID tokens
 func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
@@ -196,6 +238,10 @@ func main() {
 	}
 	log.Println("Firebase Admin SDK initialized!")
 
+	// --- Create and Run the Hub ---
+	hub := newHub()
+	go hub.run() // This starts the hub in a separate goroutine
+
 	// --- Router Setup ---
 	r := mux.NewRouter()
 	// Public route for creating users
@@ -203,7 +249,9 @@ func main() {
 	// Protected route for getting user info
 	r.HandleFunc("/api/me", authMiddleware(meHandler)).Methods("GET")
 	// WebSocket endpoint
-	r.HandleFunc("/ws", serveWs)
+	r.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request){
+		serveWs(hub, w, r)
+	})
 
 	// Handle CORS
 	c := cors.New(cors.Options{
