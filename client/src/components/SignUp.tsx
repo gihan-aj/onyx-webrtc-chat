@@ -5,9 +5,11 @@ import { auth } from "../firebase";
 const SignUp: React.FC = () => {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [loading, setLoading] = useState(false);
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); // Prevent the form from refreshing the page
+    setLoading(true);
     try {
       // 1. Create user in Firebase
       const userCredential = await createUserWithEmailAndPassword(
@@ -21,7 +23,7 @@ const SignUp: React.FC = () => {
       const response = await fetch("http://localhost:8080/api/users", {
         method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           id: userCredential.user.uid,
@@ -29,51 +31,60 @@ const SignUp: React.FC = () => {
         }),
       });
 
-      if(!response.ok){
+      if (!response.ok) {
         console.log("Response not ok:", response);
-        throw new Error(`Failed to create user in backend: ${response.statusText}`);
+        throw new Error(
+          `Failed to create user in backend: ${response.statusText}`
+        );
       }
 
-      const backendUser = await response.json();
-      console.log("Backend user created:", backendUser);
-
-      alert("Sign up successful!");
-
+      alert("Account created! You are now logged in.");
     } catch (error) {
       console.error("Error signing up:", error);
       if (error instanceof Error) alert(`Error: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div>
-      <h2>Sign Up</h2>
-      <form onSubmit={handleSignUp}>
-        <div>
-          <label>Email:</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setEmail(e.target.value)
-            }
-            required
-          />
-        </div>
-        <div>
-          <label>Password:</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setPassword(e.target.value)
-            }
-            required
-          />
-        </div>
-        <button type="submit">Sign Up</button>
-      </form>
-    </div>
+    <form onSubmit={handleSignUp} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1">
+          Email
+        </label>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+          placeholder="you@example.com"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1">
+          Password
+        </label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+          placeholder="••••••••"
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={loading}
+        className="w-full bg-blue-600 text-white font-medium py-2 px-4 rounded-md hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {loading ? "Creating Account..." : "Create Account"}
+      </button>
+    </form>
   );
 };
 

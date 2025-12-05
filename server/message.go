@@ -6,6 +6,7 @@ import "time"
 type Message struct {
 	SenderID string		`json:"senderId"`
 	SenderName string	`json:"senderName"`
+	RecipientID string	`json:"recipientId"`
 	Content string		`json:"content"`
 	Timestamp time.Time	`json:"timestamp"`
 }

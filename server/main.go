@@ -213,6 +213,31 @@ func createUserHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
+// getUsersHandler returns a list of all registered users
+func getUsersHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var users []User
+	collection := mongoClient.Database("onychat").Collection("users")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Find all users (in a real app, you might want to exclude the current user)
+	cursor, err := collection.Find(ctx, bson.M{})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer cursor.Close(ctx)
+
+	if err = cursor.All(ctx, &users); err != nil {
+		respondWithError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	json.NewEncoder(w).Encode(users)
+}
+
 func respondWithError(w http.ResponseWriter, code int, err error){
 	// Log the detailed error on the server for debugging.
     log.Printf("HTTP %d - %s", code, err)
@@ -272,6 +297,8 @@ func main() {
 	r.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request){
 		serveWs(hub, w, r)
 	})
+	// Protected route to get all users
+	r.HandleFunc("/api/users", authMiddleware(getUsersHandler)).Methods("GET")
 
 	// Handle CORS
 	c := cors.New(cors.Options{

@@ -54,11 +54,18 @@ func (h *Hub) run() {
 				continue
 			}
 			for client := range h.clients {
-				select {
-				case client.send <- messageJSON:
-				default:
-					close(client.send)
-					delete(h.clients, client)
+
+				shouldSend := message.RecipientID == "" ||
+					client.uid == message.RecipientID ||
+					client.uid == message.SenderID
+				
+				if shouldSend {
+					select {
+					case client.send <- messageJSON:
+					default: 
+						close(client.send)
+						delete(h.clients, client)
+					}
 				}
 			}
 		}
