@@ -22,26 +22,26 @@ export const AuthProvider: React.FC<{ children: ReactNode}> = ({children}) => {
       const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
         setUser(currentUser);
 
-        if(currentUser){
-            if (currentUser) {
-              const idToken = await currentUser.getIdToken();
-              setToken(idToken);
-            } else {
-              setToken(null);
-            }
-
-            setLoading(false);
+        if (currentUser) {
+          const idToken = await currentUser.getIdToken();
+          setToken(idToken);
+          console.log("User logged in, token set.");
+        } else {
+          setToken(null);
+          console.log("No user, token cleared.");
         }
+
+        setLoading(false);
       });
 
       return () => unsubscribe();
     }, []);
 
     return (
-        <AuthContext.Provider value = {{user, token, loading }}>
-            {!loading && children }
-        </AuthContext.Provider>
-    )
+      <AuthContext.Provider value={{ user, token, loading }}>
+        {children}
+      </AuthContext.Provider>
+    );
 }
 
 // 2. Custom Hook

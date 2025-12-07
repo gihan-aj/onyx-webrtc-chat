@@ -4,6 +4,8 @@ import type React from "react";
 import Login from "./components/Login";
 import Chat from "./components/Chat";
 import { useAuth } from "./context/AuthContext";
+import { signOut } from "firebase/auth";
+import { auth } from "./firebase";
 
 const App: React.FC = () => {
   const { token, loading } = useAuth();
@@ -27,7 +29,7 @@ const App: React.FC = () => {
         <header className="bg-white border-b border-slate-200 p-4 shadow-sm flex justify-between items-center">
           <h1 className="text-xl font-bold text-slate-800">OnyxChat</h1>
           <button
-            onClick={() => window.location.reload()} // Temporary logout (just refreshes for now)
+            onClick={() => signOut(auth)} // Temporary logout (just refreshes for now)
             className="text-sm text-red-500 hover:text-red-700 font-medium"
           >
             Sign Out

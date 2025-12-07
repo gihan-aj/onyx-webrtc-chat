@@ -55,6 +55,10 @@ func (h *Hub) run() {
 			}
 			for client := range h.clients {
 
+				// LOGIC: Send if:
+				// - It's a public message (RecipientID is empty)
+				// - OR The client is the target (RecipientID matches client UID)
+				// - OR The client is the sender (so they see their own sent message)
 				shouldSend := message.RecipientID == "" ||
 					client.uid == message.RecipientID ||
 					client.uid == message.SenderID

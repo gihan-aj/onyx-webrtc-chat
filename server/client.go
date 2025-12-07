@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"time"
 
@@ -27,7 +28,7 @@ func (c *Client) readPump() {
 	}()
 
 	for {
-		_, messageContent, err := c.conn.ReadMessage()
+		_, messageBytes, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure){
 				log.Printf("error: %v", err)
@@ -35,14 +36,27 @@ func (c *Client) readPump() {
 			break
 		}
 
+		// 1. Parse the incoming JSON (Content + RecipientID)
+		var incoming struct {
+			Content	    string `json:"content"`
+			RecipientID string `json:"recipientId"`
+		}
+
+		if err := json.Unmarshal(messageBytes, &incoming); err != nil {
+			log.Printf("error unmarshaling message: %v", err)
+			continue
+		}
+
+		// 2. Create the full Message object
 		msg := &Message{
 			SenderID: c.uid,
 			SenderName: c.username,
-			Content: string(messageContent),
+			RecipientID: incoming.RecipientID,
+			Content: incoming.Content,
 			Timestamp: time.Now(),
 		}
 
-		// When a messsage is received, it is sent to the hub's broadcast channel
+		// 3. Send to Hub
 		c.hub.broadcast <- msg
 	}
 }
